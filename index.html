@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motor Homing Control</title>
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --secondary-color: #607D8B;
+            --success-color: #4CAF50;
+            --warning-color: #FFC107;
+            --error-color: #F44336;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .parameter-group {
+            margin-bottom: 20px;
+        }
+
+        .parameter-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .parameter-label {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .parameter-value {
+            width: 60px;
+            text-align: center;
+        }
+
+        .parameter-slider {
+            flex: 2;
+            margin: 0 10px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            transition: background .15s ease-in-out;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--secondary-color);
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .feedback {
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #2b2b2b;
+            color: #fff;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .presets {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .status.connected {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .status.disconnected {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 0;
+        }
+
+        .clear-log {
+            margin-top: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .manual-control {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>Motor X Parameters</h2>
+            <div class="parameter-group">
+                <div class="parameter-row">
+                    <span class="parameter-label">Homing Current (r)</span>
+                    <input type="range" id="currentX" class="parameter-slider" min="100" max="1000" step="10" value="400">
+                    <span class="parameter-value" id="currentX-value">400</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Stall Threshold (t)</span>
+                    <input type="range" id="thresholdX" class="parameter-slider" min="0" max="100" value="25">
+                    <span class="parameter-value" id="thresholdX-value">25</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Speed (s)</span>
+                    <input type="range" id="speedX" class="parameter-slider" min="100" max="1000" step="10" value="500">
+                    <span class="parameter-value" id="speedX-value">500</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Distance (x)</span>
+                    <input type="range" id="distanceX" class="parameter-slider" min="-1000" max="1000" step="10" value="-1000">
+                    <span class="parameter-value" id="distanceX-value">-1000</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Delay (d)</span>
+                    <input type="range" id="delayX" class="parameter-slider" min="100" max="1000" step="100" value="500">
+                    <span class="parameter-value" id="delayX-value">500</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Post-Home Position</span>
+                    <input type="range" id="postHomeX" class="parameter-slider" min="-1000" max="1000" step="10" value="100">
+                    <span class="parameter-value" id="postHomeX-value">100</span>
+                </div>
+                <div class="button-group">
+                    <button onclick="toggleHomeMode('X', 1)">Enter Home Mode X</button>
+                    <button onclick="toggleHomeMode('X', 0)">Exit Home Mode X</button>
+                    <button onclick="sendHomingX(1)">Home Motor X</button>
+                </div>
+                <div class="manual-control">
+                    <button onclick="moveMotor('x', -10)">◀ -10°</button>
+                    <button onclick="moveMotor('x', -1)">◀ -1°</button>
+                    <button onclick="moveMotor('x', 1)">+1° ▶</button>
+                    <button onclick="moveMotor('x', 10)">+10° ▶</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Motor Y Parameters</h2>
+            <div class="parameter-group">
+                <div class="parameter-row">
+                    <span class="parameter-label">Homing Current (R)</span>
+                    <input type="range" id="currentY" class="parameter-slider" min="100" max="1000" step="10" value="500">
+                    <span class="parameter-value" id="currentY-value">500</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Stall Threshold (T)</span>
+                    <input type="range" id="thresholdY" class="parameter-slider" min="0" max="100" value="10">
+                    <span class="parameter-value" id="thresholdY-value">10</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Speed (S)</span>
+                    <input type="range" id="speedY" class="parameter-slider" min="100" max="1000" step="10" value="500">
+                    <span class="parameter-value" id="speedY-value">500</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Distance (y)</span>
+                    <input type="range" id="distanceY" class="parameter-slider" min="-1000" max="1000" step="10" value="1000">
+                    <span class="parameter-value" id="distanceY-value">1000</span>
+                </div>
+                <div class="parameter-row">
+                    <span class="parameter-label">Delay (d)</span>
+                    <input type="range" id="delayY" class="parameter-slider" min="100" max="1000" step="100" value="500">
+                    <span class="parameter-value" id="delayY-value">500</span>
+                </div>
+                 <div class="parameter-row">
+                    <span class="parameter-label">Post-Home Position</span>
+                    <input type="range" id="postHomeY" class="parameter-slider" min="-1000" max="1000" step="10" value="-100">
+                    <span class="parameter-value" id="postHomeY-value">-100</span>
+                </div>
+                <div class="button-group">
+                    <button onclick="toggleHomeMode('Y', 1)">Enter Home Mode Y</button>
+                    <button onclick="toggleHomeMode('Y', 0)">Exit Home Mode Y</button>
+                    <button onclick="sendHomingY(1)">Home Motor Y</button>
+                </div>
+                <div class="manual-control">
+                    <button onclick="moveMotor('y', -10)">◀ -10°</button>
+                    <button onclick="moveMotor('y', -1)">◀ -1°</button>
+                    <button onclick="moveMotor('y', 1)">+1° ▶</button>
+                    <button onclick="moveMotor('y', 10)">+10° ▶</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Connection & Presets</h2>
+            <div class="parameter-group">
+                <button id="connectButton" onclick="connectSerial()">Connect Serial</button>
+                <span id="connectionStatus" class="status disconnected">Disconnected</span>
+            </div>
+            <div class="presets">
+                <select id="presetSelect">
+                    <option value="">Select Preset</option>
+                </select>
+                <button onclick="loadPreset()">Load</button>
+                <input type="text" id="presetName" placeholder="Preset Name">
+                <button onclick="savePreset()">Save Current</button>
+            </div>
+            <div class="feedback" id="feedback"></div>
+            <button onclick="clearLog()" class="clear-log">Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        let port;
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+        let receivedData = '';
+
+        // Update value displays for all sliders
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            slider.addEventListener('input', () => {
+                document.getElementById(`${slider.id}-value`).textContent = slider.value;
+            });
+        });
+
+        // Connect to Serial port
+        async function connectSerial() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                updateConnectionStatus(true);
+                readLoop();
+            } catch (err) {
+                console.error('Serial connection failed:', err);
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Update connection status display
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            status.textContent = connected ? 'Connected' : 'Disconnected';
+            status.className = `status ${connected ? 'connected' : 'disconnected'}`;
+            document.getElementById('connectButton').textContent = connected ? 'Disconnect' : 'Connect Serial';
+        }
+
+        // Read from Serial port
+        async function readLoop() {
+            const reader = port.readable.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const text = decoder.decode(value);
+                    receivedData += text;
+                    
+                    // Process complete lines
+                    let newlineIndex;
+                    while ((newlineIndex = receivedData.indexOf('\n')) !== -1) {
+                        const line = receivedData.slice(0, newlineIndex + 1);
+                        appendToFeedback(line);
+                        receivedData = receivedData.slice(newlineIndex + 1);
+                    }
+                }
+            } catch (err) {
+                console.error('Read error:', err);
+            } finally {
+                reader.releaseLock();
+            }
+        }
+
+        // Append text to feedback display
+        function appendToFeedback(text) {
+            const feedback = document.getElementById('feedback');
+            feedback.textContent += text;
+            feedback.scrollTop = feedback.scrollHeight;
+        }
+
+        // Clear log
+        function clearLog() {
+            document.getElementById('feedback').textContent = '';
+        }
+
+        // Send command through Serial port
+        async function sendCommand(command) {
+            if (!port) {
+                alert('Please connect to serial port first');
+                return;
+            }
+            
+            try {
+                const writer = port.writable.getWriter();
+                await writer.write(encoder.encode(command));
+                writer.releaseLock();
+            } catch (err) {
+                console.error('Write error:', err);
+                appendToFeedback(`Error sending command: ${err.message}\n`);
+            }
+        }
+
+        // Generate and send homing command for Motor X
+        function sendHomingX() {
+            const current = document.getElementById('currentX').value;
+            const threshold = document.getElementById('thresholdX').value;
+            const speed = document.getElementById('speedX').value;
+            const distance = document.getElementById('distanceX').value;
+            const delay = document.getElementById('delayX').value;
+            const postHome = document.getElementById('postHomeX').value;
+            
+            const command = `a1r${current}t${threshold}s${speed}x${distance}d${delay}a0s300x${postHome}\n`;
+            appendToFeedback(`\n[Motor X Homing Command]\n${command}\n`);
+            sendCommand(command);
+        }
+
+        // Generate and send homing command for Motor Y
+        function sendHomingY() {
+            const current = document.getElementById('currentY').value;
+            const threshold = document.getElementById('thresholdY').value;
+            const speed = document.getElementById('speedY').value;
+            const distance = document.getElementById('distanceY').value;
+            const delay = document.getElementById('delayY').value;
+            const postHome = document.getElementById('postHomeY').value;
+            
+            const command = `A1R${current}T${threshold}S${speed}y${distance}d${delay}A0S300y${postHome}\n`;
+            appendToFeedback(`\n[Motor Y Homing Command]\n${command}\n`);
+            sendCommand(command);
+        }
+
+        // Send command to set/unset homing mode
+        function toggleHomeMode(motor, enable) {
+            const command = (motor === 'X' ? 'a' : 'A') + (enable ? '1' : '0') + '\n';
+            sendCommand(command);
+            appendToFeedback(`\n[Homing Mode ${enable ? 'Enabled' : 'Disabled'}] Motor ${motor}\n`);
+        }
+
+        // Send command to move motor manually
+        function moveMotor(motor, degrees) {
+            const command = (motor === 'x' ? 'x' : 'y') + degrees + '\n';
+            sendCommand(command);
+            appendToFeedback(`\n[Manual Move] Motor ${motor}, ${degrees} degrees\n`);
+        }
+
+        // Save current parameters as a preset
+        function savePreset() {
+            const name = document.getElementById('presetName').value;
+            if (!name) {
+                alert('Please enter a preset name');
+                return;
+            }
+
+            const preset = {
+                motorX: {
+                    current: document.getElementById('currentX').value,
+                    threshold: document.getElementById('thresholdX').value,
+                    speed: document.getElementById('speedX').value,
+                    distance: document.getElementById('distanceX').value,
+                    delay: document.getElementById('delayX').value,
+                    postHome: document.getElementById('postHomeX').value
+                },
+                motorY: {
+                    current: document.getElementById('currentY').value,
+                    threshold: document.getElementById('thresholdY').value,
+                    speed: document.getElementById('speedY').value,
+                    distance: document.getElementById('distanceY').value,
+                    delay: document.getElementById('delayY').value,
+                    postHome: document.getElementById('postHomeY').value
+                }
+            };
+
+            const presets = JSON.parse(localStorage.getItem('motorPresets') || '{}');
+            presets[name] = preset;
+            localStorage.setItem('motorPresets', JSON.stringify(presets));
+            
+            updatePresetList();
+            appendToFeedback(`\n[Preset Saved] ${name}\n`);
+        }
+
+        // Load selected preset
+        function loadPreset() {
+            const name = document.getElementById('presetSelect').value;
+            if (!name) return;
+
+            const presets = JSON.parse(localStorage.getItem('motorPresets') || '{}');
+            const preset = presets[name];
+
+            if (preset) {
+                // Update Motor X parameters
+                document.getElementById('currentX').value = preset.motorX.current;
+                document.getElementById('thresholdX').value = preset.motorX.threshold;
+                document.getElementById('speedX').value = preset.motorX.speed;
+                document.getElementById('distanceX').value = preset.motorX.distance;
+                document.getElementById('delayX').value = preset.motorX.delay;
+                 document.getElementById('postHomeX').value = preset.motorX.postHome;
+
+                // Update Motor Y parameters
+                document.getElementById('currentY').value = preset.motorY.current;
+                document.getElementById('thresholdY').value = preset.motorY.threshold;
+                document.getElementById('speedY').value = preset.motorY.speed;
+                document.getElementById('distanceY').value = preset.motorY.distance;
+                document.getElementById('delayY').value = preset.motorY.delay;
+                document.getElementById('postHomeY').value = preset.motorY.postHome;
+
+                // Update all value displays
+                document.querySelectorAll('input[type="range"]').forEach(slider => {
+                    document.getElementById(`${slider.id}-value`).textContent = slider.value;
+                });
+
+                appendToFeedback(`\n[Preset Loaded] ${name}\n`);
+            }
+        }
+
+        // Update preset dropdown list
+        function updatePresetList() {
+            const select = document.getElementById('presetSelect');
+            const presets = JSON.parse(localStorage.getItem('motorPresets') || '{}');
+            
+            select.innerHTML = '<option value="">Select Preset</option>';
+            Object.keys(presets).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+
+        // Initialize preset list on page load
+        updatePresetList();
+    </script>
+</body>
+</html>

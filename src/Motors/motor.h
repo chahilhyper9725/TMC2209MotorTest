@@ -105,6 +105,7 @@ void theta_emergency_stop(void);
 void theta_enable(void);
 void theta_disable(void);
 void theta_set_current(uint16_t current_ma, float hold_factor);
+void theta_take_step(int steps, int steps_delay);
 
 // Theta motor parameter setters
 void theta_set_microsteps(uint16_t microsteps);

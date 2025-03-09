@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include "config.h"
 #include "TMCStepper.h"
+//a1r520t50s260x-1000d1000a0s300x0 for X
+//a1r520t50s260x-1000d1000a0s300x0 for Y
+
 
 #define TMCUART Serial2
 #define REPORT_DELAY 4
@@ -11,19 +14,17 @@ int motor_speedX = 500;
 int microstepsX = 16;
 int steps_per_revX = 200 * microstepsX;
 int stallguardthreshX = 25;
-int rms_currentX = 250;
-float rms_holdX = 0.4;
+int rms_currentX = 800;
+float rms_holdX = 0.3;
 bool home_modeX = false;
 bool is_homedX = false;
 
-
-
 int motor_speedY = 500;
-int microstepsY= 16;
+int microstepsY = 16;
 int steps_per_revY = 200 * microstepsY;
 int stallguardthreshY = 25;
-int rms_currentY = 250;
-float rms_holdY = 0.4;
+int rms_currentY = 800;
+float rms_holdY = 0.3;
 bool home_modeY = false;
 bool is_homedY = false;
 
@@ -64,12 +65,13 @@ void initMotorsPins()
 void setup()
 {
   Serial.begin(115200);
+  Serial.println("Starting...");
   initMotorsPins();
   TMCUART.begin(115200, SERIAL_8N1, PDN_RX, PDN_TX);
-delay(100);
+  delay(100);
   driverX.begin();
-delay(100);
-  // driverY.begin();
+  delay(100);
+  driverY.begin();
   delay(100);
 
   uint8_t versionX = driverX.version();
@@ -87,16 +89,14 @@ delay(100);
   driverX.rms_current(rms_currentX, rms_holdX);
   driverX.TCOOLTHRS(0xFFFFF);
 
-
-  driverX.pdn_disable(true);
-  driverX.en_spreadCycle(false);
-  driverX.I_scale_analog(false);
-  driverX.internal_Rsense(false);
-  driverX.microsteps(microstepsX);
-  driverX.SGTHRS(stallguardthreshX);
-  driverX.rms_current(rms_currentX, rms_holdX);
-  driverX.TCOOLTHRS(0xFFFFF);
-
+  driverY.pdn_disable(true);
+  driverY.en_spreadCycle(false);
+  driverY.I_scale_analog(false);
+  driverY.internal_Rsense(false);
+  driverY.microsteps(microstepsY);
+  driverY.SGTHRS(stallguardthreshY);
+  driverY.rms_current(rms_currentY, rms_holdY);
+  driverY.TCOOLTHRS(0xFFFFF);
 
   attachInterrupt(MOTOR_X_DIAG, stallISRX, FALLING);
   attachInterrupt(MOTOR_Y_DIAG, stallISRY, FALLING);
@@ -115,7 +115,6 @@ void loop()
     if (c == 'e')
     {
       digitalWrite(MOTOR_X_ENABLE, !digitalRead(MOTOR_X_ENABLE));
-
     }
     else if (c == 'E')
     {
@@ -213,17 +212,22 @@ void loop()
       rms_holdY = Serial.parseFloat();
       driverY.rms_current(rms_currentY, rms_holdY);
     }
+    else if (c == 'a')
+    {
+      home_modeX = Serial.parseInt();
+    stallflagX = false;
+    }
+    else if (c == 'A')
+    {
+      home_modeY = Serial.parseInt();
+    stallflagY = false;
+    }
   }
 
   if (printflag)
   {
   }
 }
-
-
-
-
-
 
 void motorGoX(float deg)
 {
@@ -249,7 +253,7 @@ void moveMotorX(int dir, int steps, int speed)
     delayMicroseconds(2);
     digitalWrite(MOTOR_X_STEP, LOW);
     delayMicroseconds(speed);
-    if (stallflagX)
+    if (stallflagX && home_modeX)
     {
       Serial.println("Stall Detected");
       stallflagX = false;
@@ -282,7 +286,7 @@ void moveMotorY(int dir, int steps, int speed)
     delayMicroseconds(2);
     digitalWrite(MOTOR_Y_STEP, LOW);
     delayMicroseconds(speed);
-    if (stallflagY)
+    if (stallflagY && home_modeY)
     {
       Serial.println("Stall Detected");
       stallflagY = false;
